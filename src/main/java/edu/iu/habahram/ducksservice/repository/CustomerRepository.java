@@ -1,5 +1,9 @@
 package edu.iu.habahram.ducksservice.repository;
+
 import edu.iu.habahram.ducksservice.model.Customer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
@@ -11,13 +15,14 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Component
 public class CustomerRepository {
     private static final Logger LOG =
             LoggerFactory.getLogger(CustomerRepository.class);
+    private static final String NEW_LINE = System.lineSeparator();
+    private static final String DATABASE_NAME = "ducks/customers.txt";
+
     public CustomerRepository() {
         File file = new File(DATABASE_NAME);
         file.getParentFile().mkdirs();
@@ -28,8 +33,6 @@ public class CustomerRepository {
         }
     }
 
-    private static final String NEW_LINE = System.lineSeparator();
-    private static final String DATABASE_NAME = "ducks/customers.txt";
     private static void appendToFile(Path path, String content)
             throws IOException {
         Files.write(path,
@@ -37,21 +40,26 @@ public class CustomerRepository {
                 StandardOpenOption.CREATE,
                 StandardOpenOption.APPEND);
     }
+
     public void save(Customer customer) throws Exception {
         Customer c = findByUsername(customer.username());
-        if(c != null) {
+        if (c != null) {
             throw new
                     Exception("This username already exists. " +
                     "Please choose another one.");
         }
         Path path = Paths.get(DATABASE_NAME);
+        BCryptPasswordEncoder bc = new BCryptPasswordEncoder();
+        String passwordEncoded = bc.encode(customer.password());
         String data = customer.username() + ","
-                + customer.password()// (THIS IS ONLY TEMPORARY!)
-                                      // we should never store the plain password.
-                                      // In the next step in this lab,
-                                      // we will encode the password
-                                      //before saving it to the file
-               + "," + customer.email();
+                + passwordEncoded + "," + customer.email();
+//        String data = customer.username() + ","
+//                + customer.password()// (THIS IS ONLY TEMPORARY!)
+//                // we should never store the plain password.
+//                // In the next step in this lab,
+//                // we will encode the password
+//                //before saving it to the file
+//                + "," + customer.email();
         appendToFile(path, data + NEW_LINE);
     }
 
@@ -60,7 +68,7 @@ public class CustomerRepository {
         Path path = Paths.get(DATABASE_NAME);
         List<String> data = Files.readAllLines(path);
         for (String line : data) {
-            if(!line.trim().isEmpty()) {
+            if (!line.trim().isEmpty()) {
                 String[] tokens = line.split(",");
                 Customer c = new Customer(tokens[0], tokens[1], tokens[2]);
                 result.add(c);
@@ -71,7 +79,7 @@ public class CustomerRepository {
 
     public Customer findByUsername(String username) throws IOException {
         List<Customer> customers = findAll();
-        for(Customer customer : customers) {
+        for (Customer customer : customers) {
             if (customer.username().trim().equalsIgnoreCase(username.trim())) {
                 return customer;
             }
